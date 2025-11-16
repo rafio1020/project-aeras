@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"name": "user-side-hardware",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}

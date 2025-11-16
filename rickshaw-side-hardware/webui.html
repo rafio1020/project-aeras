@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AERAS - Rickshaw Puller</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .status-badge.active {
+            background: #10b981;
+        }
+
+        .status-badge.on-ride {
+            background: #f59e0b;
+        }
+
+        /* Stats Bar */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 15px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 5px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: #f8fafc;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+            background: none;
+            font-size: 14px;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            background: white;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+            padding: 20px;
+            animation: fadeIn 0.3s;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Ride Request Card */
+        .ride-request {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+            position: relative;
+            animation: slideIn 0.5s, pulse 2s infinite;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3); }
+            50% { box-shadow: 0 4px 20px rgba(102, 126, 234, 0.6); }
+        }
+
+        .ride-request.priority {
+            border: 3px solid #fbbf24;
+        }
+
+        .priority-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #fbbf24;
+            color: #000;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .ride-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .ride-info-item {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .ride-info-label {
+            font-size: 11px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .ride-info-value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-accept {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-accept:hover {
+            background: #059669;
+            transform: scale(1.05);
+        }
+
+        .btn-reject {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-reject:hover {
+            background: #dc2626;
+            transform: scale(1.05);
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Active Ride Card */
+        .active-ride {
+            background: #f0fdf4;
+            border: 2px solid #10b981;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .active-ride h3 {
+            color: #10b981;
+            margin-bottom: 15px;
+        }
+
+        .location-display {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .gps-coords {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 5px;
+        }
+
+        .distance-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .distance-value {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        /* History List */
+        .history-item {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .history-date {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .history-points {
+            font-weight: bold;
+            color: #10b981;
+        }
+
+        .history-route {
+            font-size: 14px;
+            color: #334155;
+            margin: 5px 0;
+        }
+
+        .history-distance {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #64748b;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        /* Timer */
+        .timer {
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            text-align: center;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Notification Badge */
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+            animation: toastIn 0.3s;
+        }
+
+        @keyframes toastIn {
+            from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .container {
+                border-radius: 0;
+            }
+
+            .ride-info {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🛺 AERAS Rickshaw</h1>
+            <div class="status-badge" id="statusBadge">● Available</div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="totalPoints">0</div>
+                <div class="stat-label">Total Points</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="todayRides">0</div>
+                <div class="stat-label">Today's Rides</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="earnings">৳0</div>
+                <div class="stat-label">Earnings</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('rides')">
+                Rides
+                <span class="notification-badge" id="ridesNotification" style="display: none;">0</span>
+            </button>
+            <button class="tab" onclick="switchTab('active')">Active</button>
+            <button class="tab" onclick="switchTab('history')">History</button>
+            <button class="tab" onclick="switchTab('points')">Points</button>
+        </div>
+
+        <!-- Rides Tab -->
+        <div class="tab-content active" id="ridesTab">
+            <div id="ridesList"></div>
+            <div class="empty-state" id="noRides" style="display: none;">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                </svg>
+                <h3>No Ride Requests</h3>
+                <p>Waiting for new requests...</p>
+            </div>
+        </div>
+
+        <!-- Active Ride Tab -->
+        <div class="tab-content" id="activeTab">
+            <div id="activeRideContent"></div>
+            <div class="empty-state" id="noActiveRide">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <h3>No Active Ride</h3>
+                <p>Accept a ride request to start</p>
+            </div>
+        </div>
+
+        <!-- History Tab -->
+        <div class="tab-content" id="historyTab">
+            <div id="historyList"></div>
+        </div>
+
+        <!-- Points Tab -->
+        <div class="tab-content" id="pointsTab">
+            <div style="text-align: center; padding: 20px;">
+                <h2 style="color: #667eea; font-size: 48px; margin-bottom: 10px;" id="pointsDisplay">0</h2>
+                <p style="color: #64748b;">Total Points Balance</p>
+                
+                <div style="margin: 30px 0; padding: 20px; background: #f8fafc; border-radius: 10px;">
+                    <h3 style="margin-bottom: 15px; color: #334155;">Rewards Catalog</h3>
+                    <div style="display: grid; gap: 10px;">
+                        <div style="display: flex; justify-content: space-between; padding: 10px; background: white; border-radius: 5px;">
+                            <span>Free Ride (1 use)</span>
+                            <span style="color: #667eea; font-weight: bold;">50 pts</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px; background: white; border-radius: 5px;">
+                            <span>Cash ৳100</span>
+                            <span style="color: #667eea; font-weight: bold;">100 pts</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px; background: white; border-radius: 5px;">
+                            <span>Cash ৳500</span>
+                            <span style="color: #667eea; font-weight: bold;">450 pts</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px; background: white; border-radius: 5px;">
+                            <span>Cash ৳1000</span>
+                            <span style="color: #667eea; font-weight: bold;">850 pts</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" onclick="redeemPoints()" style="width: 100%;">
+                    Redeem Points
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Audio for notifications -->
+    <audio id="notificationSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSp+zPDThjMGHGS679+YRgoRV6rj8K1aGAg+mtv0xHEkBSp8y/DUjTkHHGO579+ZRwoRVqjj8KxaGAg9mNn0w3EkBCp7y+/Ri" type="audio/wav">
+    </audio>
+
+    <script>
+        // Configuration
+        const BACKEND_URL = 'http://10.172.129.95:3000/api'; // Change to your IP
+        const RICKSHAW_ID = 'RICK001'; // Change to your rickshaw ID
+        let currentRideID = null;
+        let currentRide = null;
+        let pollInterval = null;
+        let gpsInterval = null;
+
+        // Initialize
+        window.onload = function() {
+            loadRickshawData();
+            startPolling();
+            updateStats();
+            loadHistory();
+        };
+
+        // Switch Tabs
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+
+            if (tabName === 'history') {
+                loadHistory();
+            }
+        }
+
+        // Load Rickshaw Data
+        async function loadRickshawData() {
+            // In production, get from localStorage or API
+            const rickshaw = {
+                rickshawID: RICKSHAW_ID,
+                pullerName: 'Abdul Karim',
+                totalPoints: 0
+            };
+            
+            document.getElementById('totalPoints').textContent = rickshaw.totalPoints;
+            document.getElementById('pointsDisplay').textContent = rickshaw.totalPoints;
+        }
+
+        // Start Polling for Rides
+        function startPolling() {
+            checkForRides();
+            pollInterval = setInterval(checkForRides, 3000); // Poll every 3 seconds
+        }
+
+        // Check for Ride Requests (TEST CASE 6a)
+        async function checkForRides() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/ride/pending?rickshawID=${RICKSHAW_ID}`);
+                const data = await response.json();
+
+                if (data.rides && data.rides.length > 0) {
+                    displayRideRequests(data.rides);
+                    
+                    // Audio/vibration alert
+                    playNotificationSound();
+                    if (navigator.vibrate) {
+                        navigator.vibrate([200, 100, 200]);
+                    }
+                    
+                    // Show notification badge
+                    const badge = document.getElementById('ridesNotification');
+                    badge.textContent = data.rides.length;
+                    badge.style.display = 'block';
+                } else {
+                    document.getElementById('ridesList').innerHTML = '';
+                    document.getElementById('noRides').style.display = 'block';
+                    document.getElementById('ridesNotification').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error fetching rides:', error);
+            }
+        }
+
+        // Display Ride Requests (TEST CASE 6a - Prioritized list)
+        function displayRideRequests(rides) {
+            document.getElementById('noRides').style.display = 'none';
+            const container = document.getElementById('ridesList');
+            
+            container.innerHTML = rides.map((ride, index) => `
+                <div class="ride-request ${index === 0 ? 'priority' : ''}">
+                    ${index === 0 ? '<div class="priority-badge">⭐ NEAREST</div>' : ''}
+                    
+                    <div class="ride-info">
+                        <div class="ride-info-item">
+                            <div class="ride-info-label">Pickup</div>
+                            <div class="ride-info-value">${ride.pickupBlock}</div>
+                        </div>
+                        <div class="ride-info-item">
+                            <div class="ride-info-label">Destination</div>
+                            <div class="ride-info-value">${ride.destination}</div>
+                        </div>
+                        <div class="ride-info-item">
+                            <div class="ride-info-label">Distance</div>
+                            <div class="ride-info-value">${ride.distance} km</div>
+                        </div>
+                        <div class="ride-info-item">
+                            <div class="ride-info-label">Est. Points</div>
+                            <div class="ride-info-value">8-10 pts</div>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-accept" onclick="acceptRide(${ride.rideID}, '${ride.pickupBlock}', '${ride.destination}')">
+                            ✓ Accept
+                        </button>
+                        <button class="btn btn-reject" onclick="rejectRide(${ride.rideID})">
+                            ✗ Reject
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Accept Ride (TEST CASE 6b)
+        async function acceptRide(rideID, pickup, destination) {
+            try {
+                const startTime = Date.now();
+                
+                const response = await fetch(`${BACKEND_URL}/ride/accept`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rideID, rickshawID: RICKSHAW_ID })
+                });
+
+                const data = await response.json();
+                const responseTime = Date.now() - startTime;
+
+                // TEST CASE 6b: Acceptance confirmation <2 seconds
+                console.log(`Acceptance time: ${responseTime}ms`);
+
+                if (data.success) {
+                    currentRideID = rideID;
+                    currentRide = {
+                        rideID,
+                        pickup,
+                        destination,
+                        startTime: Date.now()
+                    };
+
+                    showToast('✓ Ride Accepted! User\'s Yellow LED should turn ON', 'success');
+                    
+                    // Update UI
+                    document.getElementById('statusBadge').textContent = '● On Ride';
+                    document.getElementById('statusBadge').classList.add('on-ride');
+                    
+                    // Switch to Active tab
+                    switchTab('active');
+                    displayActiveRide();
+                    
+                    // Start GPS tracking
+                    startGPSTracking();
+                } else {
+                    showToast('✗ ' + data.message, 'error');
+                }
+            } catch (error) {
+                showToast('Error accepting ride', 'error');
+                console.error(error);
+            }
+        }
+
+        // Reject Ride (TEST CASE 6b)
+        async function rejectRide(rideID) {
+            showToast('Ride rejected - Offer goes to next puller', 'info');
+            checkForRides(); // Refresh list
+        }
+
+        // Display Active Ride (TEST CASE 6c)
+        function displayActiveRide() {
+            document.getElementById('noActiveRide').style.display = 'none';
+            
+            const phase = currentRide.pickupConfirmed ? 'destination' : 'pickup';
+            const target = currentRide.pickupConfirmed ? currentRide.destination : currentRide.pickup;
+            
+            document.getElementById('activeRideContent').innerHTML = `
+                <div class="active-ride">
+                    <h3>${currentRide.pickupConfirmed ? '🎯 Going to Destination' : '📍 Going to Pickup'}</h3>
+                    
+                    <div class="location-display">
+                        <strong>Target:</strong> ${target}
+                        <div class="gps-coords" id="targetGPS">Loading GPS...</div>
+                    </div>
+
+                    <div class="distance-info">
+                        <div>
+                            <div style="font-size: 12px; opacity: 0.8;">Distance</div>
+                            <div class="distance-value" id="distanceValue">-</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 12px; opacity: 0.8;">Direction</div>
+                            <div style="font-size: 24px; font-weight: bold;" id="directionValue">-</div>
+                        </div>
+                    </div>
+
+                    <div class="timer" id="rideTimer">00:00</div>
+
+                    ${!currentRide.pickupConfirmed ? `
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 15px;" 
+                                onclick="confirmPickup()" id="pickupBtn">
+                            Confirm Pickup (within 100m)
+                        </button>
+                    ` : `
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 15px;" 
+                                onclick="completeRide()" id="completeBtn">
+                            Complete Ride (within 100m)
+                        </button>
+                    `}
+                </div>
+            `;
+
+            // Start ride timer
+            updateRideTimer();
+        }
+
+        // Simulate GPS Tracking (TEST CASE 6c & 6d)
+        function startGPSTracking() {
+            gpsInterval = setInterval(() => {
+                // Simulate GPS update
+                const distance = Math.floor(Math.random() * 500) + 50;
+                const direction = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.floor(Math.random() * 8)];
+                
+                if (document.getElementById('distanceValue')) {
+                    document.getElementById('distanceValue').textContent = distance + 'm';
+                    document.getElementById('directionValue').textContent = direction;
+                }
+            }, 2000);
+        }
+
+        // Update Ride Timer
+        function updateRideTimer() {
+            const timer = setInterval(() => {
+                if (!currentRide) {
+                    clearInterval(timer);
+                    return;
+                }
+                
+                const elapsed = Math.floor((Date.now() - currentRide.startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                
+                const timerEl = document.getElementById('rideTimer');
+                if (timerEl) {
+                    timerEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                }
+            }, 1000);
+        }
+
+        // Confirm Pickup (TEST CASE 6c)
+        async function confirmPickup() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/ride/pickup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rideID: currentRideID })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentRide.pickupConfirmed = true;
+                    showToast('✓ Pickup Confirmed! User\'s Green LED should turn ON', 'success');
+                    displayActiveRide();
+                } else {
+                    showToast('✗ Pickup confirmation failed', 'error');
+                }
+            } catch (error) {
+                showToast('Error confirming pickup', 'error');
+            }
+        }
+
+        // Complete Ride (TEST CASE 6d)
+        async function completeRide() {
+            try {
+                // Simulate GPS coordinates
+                const dropLat = 22.4725 + (Math.random() * 0.001 - 0.0005);
+                const dropLng = 91.9845 + (Math.random() * 0.001 - 0.0005);
+
+                const response = await fetch(`${BACKEND_URL}/ride/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rideID: currentRideID,
+                        dropLat,
+                        dropLng
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const points = data.points;
+                    const status = data.status;
+                    
+                    // TEST CASE 6d: Point reward status
+                    if (status === 'COMPLETED') {
+                        showToast(`✓ Ride Completed! +${points} points awarded`, 'success');
+                    } else if (status === 'PENDING_REVIEW') {
+                        showToast('⚠ Drop location too far - Points PENDING admin review', 'warning');
+                    }
+
+                    // Update points
+                    updateStats();
+                    
+                    // Reset ride
+                    clearInterval(gpsInterval);
+                    currentRideID = null;
+                    currentRide = null;
+                    
+                    // Update UI
+                    document.getElementById('statusBadge').textContent = '● Available';
+                    document.getElementById('statusBadge').classList.remove('on-ride');
+                    
+                    // Switch to history tab after 3 seconds
+                    setTimeout(() => {
+                        switchTab('history');
+                        loadHistory();
+                    }, 3000);
+                } else {
+                    showToast('✗ ' + data.error, 'error');
+                }
+            } catch (error) {
+                showToast('Error completing ride', 'error');
+                console.error(error);
+            }
+        }
+
+        // Update Stats (TEST CASE 6e)
+        async function updateStats() {
+            try {
+                // Get rickshaw data
+                const response = await fetch(`${BACKEND_URL}/rickshaw/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rickshawID: RICKSHAW_ID,
+                        pullerName: 'Abdul Karim',
+                        phoneNumber: '01712345678',
+                        currentLat: 22.4633,
+                        currentLng: 91.9714
+                    })
+                });
+
+                // Get all rides to calculate stats
+                const ridesResponse = await fetch(`${BACKEND_URL}/admin/rides?limit=1000`);
+                const ridesData = await ridesResponse.json();
+                
+                if (ridesData.rides) {
+                    const myRides = ridesData.rides.filter(r => r.rickshawID === RICKSHAW_ID);
+                    const completedRides = myRides.filter(r => r.status === 'COMPLETED');
+                    
+                    // Calculate total points
+                    const totalPoints = completedRides.reduce((sum, ride) => sum + (ride.pointsAwarded || 0), 0);
+                    
+                    // Today's rides
+                    const today = new Date().toISOString().split('T')[0];
+                    const todayRides = completedRides.filter(r => r.requestTime && r.requestTime.startsWith(today));
+                    
+                    // Update UI (TEST CASE 6e: Real-time sync)
+                    document.getElementById('totalPoints').textContent = totalPoints;
+                    document.getElementById('todayRides').textContent = todayRides.length;
+                    document.getElementById('earnings').textContent = '৳' + (totalPoints * 10); // 1 point = ৳10
+                    document.getElementById('pointsDisplay').textContent = totalPoints;
+                }
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+
+        // Load History (TEST CASE 6e)
+        async function loadHistory() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/admin/rides?limit=100`);
+                const data = await response.json();
+
+                if (data.rides) {
+                    const myRides = data.rides
+                        .filter(r => r.rickshawID === RICKSHAW_ID && r.status === 'COMPLETED')
+                        .slice(0, 10); // Last 10 rides
+
+                    if (myRides.length === 0) {
+                        document.getElementById('historyList').innerHTML = `
+                            <div class="empty-state">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                </svg>
+                                <h3>No Ride History</h3>
+                                <p>Complete your first ride to see history</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    document.getElementById('historyList').innerHTML = myRides.map(ride => {
+                        const date = new Date(ride.requestTime);
+                        const dateStr = date.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        });
+
+                        return `
+                            <div class="history-item">
+                                <div class="history-header">
+                                    <span class="history-date">${dateStr}</span>
+                                    <span class="history-points">+${ride.pointsAwarded} pts</span>
+                                </div>
+                                <div class="history-route">
+                                    📍 ${ride.pickupBlock} → ${ride.destination}
+                                </div>
+                                <div class="history-distance">
+                                    Drop accuracy: ${ride.dropDistance ? ride.dropDistance.toFixed(1) + 'm' : 'N/A'}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        // Play Notification Sound
+        function playNotificationSound() {
+            const audio = document.getElementById('notificationSound');
+            audio.play().catch(e => console.log('Audio play failed:', e));
+        }
+
+        // Show Toast Notification
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            
+            if (type === 'success') toast.style.background = '#10b981';
+            else if (type === 'error') toast.style.background = '#ef4444';
+            else if (type === 'warning') toast.style.background = '#f59e0b';
+            else toast.style.background = '#1f2937';
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Redeem Points
+        function redeemPoints() {
+            showToast('Point redemption feature coming soon!', 'info');
+        }
+
+        // Auto-refresh stats every 10 seconds
+        setInterval(updateStats, 10000);
+    </script>
+</body>
+</html>
