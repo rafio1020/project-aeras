@@ -624,10 +624,227 @@ app.get('/api/admin/analytics', (req, res) => {
   );
 });
 
-app.use(express.static('public')); // Create 'public' folder
+// TEST CASE 8e: Puller Cancellation
+app.post('/api/ride/cancel', (req, res) => {
+  const { rideID, rickshawID, reason = 'Emergency' } = req.body;
+  
+  if (!rideID || !rickshawID) {
+    return res.status(400).json({ error: 'Missing fields' });
+  }
+  
+  console.log(`\n❌ Rickshaw ${rickshawID} cancelling ride ${rideID}`);
+  
+  // Update ride back to PENDING
+  db.run(
+    `UPDATE rides 
+     SET status = 'PENDING', 
+         rickshawID = NULL, 
+         acceptTime = NULL 
+     WHERE rideID = ? AND rickshawID = ? AND status IN ('ACCEPTED', 'PICKUP')`,
+    [rideID, rickshawID],
+    function(err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (this.changes === 0) {
+        return res.status(400).json({ error: 'Cannot cancel ride' });
+      }
+      
+      // Update rickshaw status
+      db.run('UPDATE rickshaws SET status = "AVAILABLE" WHERE rickshawID = ?', [rickshawID]);
+      
+      console.log(`✓ Ride ${rideID} returned to PENDING - Re-alerting other pullers`);
+      
+      res.json({ success: true, message: 'Ride cancelled, re-alerting others' });
+    }
+  );
+});
 
-app.get('/rickshaw', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'rickshaw-ui.html'));
+// TEST CASE 11b: Point Redemption
+app.post('/api/points/redeem', (req, res) => {
+  const { rickshawID, points, rewardType } = req.body;
+  
+  if (!rickshawID || !points) {
+    return res.status(400).json({ error: 'Missing fields' });
+  }
+  
+  console.log(`\n💰 ${rickshawID} redeeming ${points} points for ${rewardType}`);
+  
+  // Check current balance
+  db.get('SELECT totalPoints FROM rickshaws WHERE rickshawID = ?', [rickshawID], (err, row) => {
+    if (err || !row) {
+      return res.status(404).json({ error: 'Rickshaw not found' });
+    }
+    
+    if (row.totalPoints < points) {
+      return res.status(400).json({ error: 'Insufficient points' });
+    }
+    
+    // Deduct points
+    db.run(
+      'UPDATE rickshaws SET totalPoints = totalPoints - ? WHERE rickshawID = ?',
+      [points, rickshawID],
+      (err) => {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
+        
+        // Log transaction
+        db.run(
+          `INSERT INTO points_history (rickshawID, pointsSpent, transactionType, notes) 
+           VALUES (?, ?, 'SPENT', ?)`,
+          [rickshawID, points, `Redeemed for ${rewardType}`]
+        );
+        
+        console.log(`✓ ${points} points redeemed. Reward: ${rewardType}`);
+        
+        res.json({ 
+          success: true, 
+          newBalance: row.totalPoints - points,
+          reward: rewardType
+        });
+      }
+    );
+  });
+});
+
+// TEST CASE 11e: Expire Old Points (Run periodically)
+app.post('/api/admin/expire-points', (req, res) => {
+  const expiryDays = req.body.days || 180;
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() - expiryDays);
+  
+  console.log(`\n⏰ Expiring points older than ${expiryDate.toISOString()}`);
+  
+  // Find expired point transactions
+  db.all(
+    `SELECT h.rickshawID, SUM(h.pointsEarned) as expiredPoints
+     FROM points_history h
+     WHERE h.transactionType = 'EARNED' 
+     AND h.transactionDate < ?
+     AND NOT EXISTS (
+       SELECT 1 FROM points_history h2 
+       WHERE h2.historyID = h.historyID 
+       AND h2.transactionType = 'EXPIRED'
+     )
+     GROUP BY h.rickshawID`,
+    [expiryDate.toISOString()],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (!rows || rows.length === 0) {
+        return res.json({ success: true, expired: 0 });
+      }
+      
+      let totalExpired = 0;
+      
+      rows.forEach(row => {
+        // Deduct expired points
+        db.run(
+          'UPDATE rickshaws SET totalPoints = totalPoints - ? WHERE rickshawID = ?',
+          [row.expiredPoints, row.rickshawID]
+        );
+        
+        // Log expiration
+        db.run(
+          `INSERT INTO points_history (rickshawID, pointsEarned, transactionType, notes) 
+           VALUES (?, ?, 'EXPIRED', ?)`,
+          [row.rickshawID, -row.expiredPoints, `Points older than ${expiryDays} days`]
+        );
+        
+        totalExpired += row.expiredPoints;
+      });
+      
+      console.log(`✓ Expired ${totalExpired} points from ${rows.length} rickshaws`);
+      
+      res.json({ 
+        success: true, 
+        expired: totalExpired,
+        rickshaws: rows.length
+      });
+    }
+  );
+});
+
+// TEST CASE 12b: Database Backup
+app.post('/api/admin/backup', (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  
+  const timestamp = new Date().toISOString().replace(/:/g, '-');
+  const backupFile = `./backups/aeras-${timestamp}.db`;
+  
+  // Create backups directory
+  if (!fs.existsSync('./backups')) {
+    fs.mkdirSync('./backups');
+  }
+  
+  // Copy database file
+  fs.copyFile('./aeras.db', backupFile, (err) => {
+    if (err) {
+      console.error('Backup failed:', err);
+      return res.status(500).json({ error: 'Backup failed' });
+    }
+    
+    console.log(`✓ Database backed up to ${backupFile}`);
+    
+    res.json({ 
+      success: true, 
+      backup: backupFile,
+      size: fs.statSync(backupFile).size
+    });
+  });
+});
+
+// TEST CASE 12e: Anonymize Old Data
+app.post('/api/admin/anonymize', (req, res) => {
+  const ageDays = req.body.days || 365;
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - ageDays);
+  
+  console.log(`\n🔒 Anonymizing data older than ${cutoffDate.toISOString()}`);
+  
+  // Anonymize user data
+  db.run(
+    `UPDATE users 
+     SET name = 'ANONYMIZED', 
+         phoneNumber = NULL 
+     WHERE lastActive < ?`,
+    [cutoffDate.toISOString()],
+    function(err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      const usersAnonymized = this.changes;
+      
+      // Anonymize ride user data
+      db.run(
+        `UPDATE rides 
+         SET userID = 'ANON_' || substr(userID, -4)
+         WHERE requestTime < ? AND userID NOT LIKE 'ANON_%'`,
+        [cutoffDate.toISOString()],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: err.message });
+          }
+          
+          const ridesAnonymized = this.changes;
+          
+          console.log(`✓ Anonymized ${usersAnonymized} users, ${ridesAnonymized} rides`);
+          
+          res.json({ 
+            success: true, 
+            usersAnonymized,
+            ridesAnonymized
+          });
+        }
+      );
+    }
+  );
 });
 
 // ========== START SERVER ==========
